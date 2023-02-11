@@ -16,6 +16,8 @@ impl Plugin for FpsControllerPlugin {
     }
 }
 
+
+
 pub enum MoveMode {
     Noclip,
     Ground,
