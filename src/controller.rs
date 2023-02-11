@@ -191,11 +191,13 @@ pub fn fps_controller_move(
         &Collider,
         &mut Transform,
         &mut Velocity,
+        &mut KinematicCharacterController,
+        &KinematicCharacterControllerOutput
     )>,
 ) {
     let dt = time.delta_seconds();
-
-    for (entity, input, mut controller, collider, transform, mut velocity) in query.iter_mut() {
+    
+    for (entity, input, mut controller, collider, transform, mut velocity, mut phys_controller, phys_output) in query.iter_mut() {
         if input.fly {
             controller.move_mode = match controller.move_mode {
                 MoveMode::Noclip => MoveMode::Ground,
@@ -231,135 +233,101 @@ pub fn fps_controller_move(
             }
 
             MoveMode::Ground => {
-                if let Some(capsule) = collider.as_capsule() {
-                    let capsule = capsule.raw;
-                    let mut start_velocity = controller.velocity;
-                    let mut end_velocity = start_velocity;
-                    let lateral_speed = start_velocity.xz().length();
+                let mut start_velocity = controller.velocity;
+                let mut end_velocity = start_velocity;
+                let lateral_speed = start_velocity.xz().length();
 
-                    // Capsule cast downwards to find ground
-                    // Better than single raycast as it handles when you are near the edge of a surface
-                    let mut ground_hit = None;
-                    let cast_capsule = Collider::capsule(
-                        capsule.segment.a.into(),
-                        capsule.segment.b.into(),
-                        capsule.radius * 0.90,
-                    );
-                    let cast_velocity = Vec3::Y * -1.0;
-                    let max_distance = 0.125;
-                    // Avoid self collisions
-                    let groups = QueryFilter::default().exclude_rigid_body(entity);
 
-                    if let Some((_handle, hit)) = physics_context.cast_shape(
-                        position,
-                        rotation,
-                        cast_velocity,
-                        &cast_capsule,
-                        max_distance,
-                        groups,
-                    ) {
-                        ground_hit = Some(hit);
-                    }
-
-                    let mut wish_direction = input.movement.z * controller.forward_speed * forward
-                        + input.movement.x * controller.side_speed * right;
-                    let mut wish_speed = wish_direction.length();
-                    if wish_speed > 1e-6 {
-                        // Avoid division by zero
-                        wish_direction /= wish_speed; // Effectively normalize, avoid length computation twice
-                    }
-
-                    let max_speed = if input.crouch {
-                        controller.crouched_speed
-                    } else if input.sprint {
-                        controller.run_speed
-                    } else {
-                        controller.walk_speed
-                    };
-
-                    wish_speed = f32::min(wish_speed, max_speed);
-
-                    if let Some(_ground_hit) = ground_hit {
-                        // Only apply friction after at least one tick, allows b-hopping without losing speed
-                        if controller.ground_tick >= 1 {
-                            if lateral_speed > controller.friction_cutoff {
-                                friction(
-                                    lateral_speed,
-                                    controller.friction,
-                                    controller.stop_speed,
-                                    dt,
-                                    &mut end_velocity,
-                                );
-                            } else {
-                                end_velocity.x = 0.0;
-                                end_velocity.z = 0.0;
-                            }
-                            end_velocity.y = 0.0;
-                        }
-                        accelerate(
-                            wish_direction,
-                            wish_speed,
-                            controller.accel,
-                            dt,
-                            &mut end_velocity,
-                        );
-                        if input.jump {
-                            // Simulate one update ahead, since this is an instant velocity change
-                            start_velocity.y = controller.jump_speed;
-                            end_velocity.y = start_velocity.y - controller.gravity * dt;
-                        }
-                        // Increment ground tick but cap at max value
-                        controller.ground_tick = controller.ground_tick.saturating_add(1);
-                    } else {
-                        controller.ground_tick = 0;
-                        wish_speed = f32::min(wish_speed, controller.air_speed_cap);
-                        accelerate(
-                            wish_direction,
-                            wish_speed,
-                            controller.air_acceleration,
-                            dt,
-                            &mut end_velocity,
-                        );
-                        end_velocity.y -= controller.gravity * dt;
-                        let air_speed = end_velocity.xz().length();
-                        if air_speed > controller.max_air_speed {
-                            let ratio = controller.max_air_speed / air_speed;
-                            end_velocity.x *= ratio;
-                            end_velocity.z *= ratio;
-                        }
-                    }
-
-                    // At this point our collider may be intersecting with the ground
-                    // Fix up our collider by offsetting it to be flush with the ground
-                    // if end_vel.y < -1e6 {
-                    //     if let Some(ground_hit) = ground_hit {
-                    //         let normal = Vec3::from(*ground_hit.normal2);
-                    //         next_translation += normal * ground_hit.toi;
-                    //     }
-                    // }
-
-                    controller.velocity = end_velocity;
-                    velocity.linvel = (start_velocity + end_velocity) * 0.5;
-                    
-                    // Crouch logic
-
-                    controller.player_height = capsule.segment.b.y;
-                    let crouch_height = controller.crouch_height;
-                    let uncrouch_height = controller.uncrouch_height;
-                    let height_dist = uncrouch_height - controller.player_height;
-                    let smooth = ((height_dist - (uncrouch_height - crouch_height) * 0.5) / ((uncrouch_height - crouch_height) * 0.5)).copysign(-1.0); // This is effectively to decelerate the movement at either end of the crouch, much like a "smoothstep"
-
-                    if input.crouch {
-                        controller.player_height -= dt * controller.crouch_speed + smooth * (controller.crouch_speed - 0.4) * dt; 
-                    } else {
-                        controller.player_height += dt * controller.uncrouch_speed + smooth * (controller.uncrouch_speed - 0.4) * dt;
-                    }
-
-                    controller.player_height = controller.player_height.clamp(crouch_height, uncrouch_height);
-
-                    commands.entity(entity).remove::<Collider>();
-                    commands.entity(entity).insert(Collider::capsule(Vec3::Y * 0.5, Vec3::Y * controller.player_height, 0.5));
+                let mut wish_direction = input.movement.z * controller.forward_speed * forward
+                    + input.movement.x * controller.side_speed * right;
+                let mut wish_speed = wish_direction.length();
+                if wish_speed > 1e-6 {
+                    // Avoid division by zero
+                    wish_direction /= wish_speed; // Effectively normalize, avoid length computation twice
                 }
+
+                let max_speed = if input.crouch {
+                    controller.crouched_speed
+                } else if input.sprint {
+                    controller.run_speed
+                } else {
+                    controller.walk_speed
+                };
+
+                wish_speed = f32::min(wish_speed, max_speed);
+
+                if phys_output.grounded {
+                    if controller.ground_tick >= 1 {
+                        if lateral_speed > controller.friction_cutoff {
+                            friction(
+                                lateral_speed,
+                                controller.friction,
+                                controller.stop_speed,
+                                dt,
+                                &mut end_velocity,
+                            );
+                        } else {
+                            end_velocity.x = 0.0;
+                            end_velocity.z = 0.0;
+                        }
+                        end_velocity.y = 0.0;
+                    }
+                    accelerate(
+                        wish_direction,
+                        wish_speed,
+                        controller.accel,
+                        dt,
+                        &mut end_velocity,
+                    );
+                    if input.jump {
+                        // Simulate one update ahead, since this is an instant velocity change
+                        start_velocity.y = controller.jump_speed;
+                        end_velocity.y = start_velocity.y - controller.gravity * dt;
+                    }
+                    // Increment ground tick but cap at max value
+                    controller.ground_tick = controller.ground_tick.saturating_add(1);
+                } else {
+                    controller.ground_tick = 0;
+                    wish_speed = f32::min(wish_speed, controller.air_speed_cap);
+                    accelerate(
+                        wish_direction,
+                        wish_speed,
+                        controller.air_acceleration,
+                        dt,
+                        &mut end_velocity,
+                    );
+                    end_velocity.y -= controller.gravity * dt;
+                    let air_speed = end_velocity.xz().length();
+                    if air_speed > controller.max_air_speed {
+                        let ratio = controller.max_air_speed / air_speed;
+                        end_velocity.x *= ratio;
+                        end_velocity.z *= ratio;
+                    }
+                }
+
+                controller.velocity = end_velocity;
+                velocity.linvel = (start_velocity + end_velocity) * 0.5;
+                phys_controller.translation = Some(velocity.linvel * dt);
+
+                // Crouch logic
+/* 
+                controller.player_height = capsule.segment.b.y;
+                let crouch_height = controller.crouch_height;
+                let uncrouch_height = controller.uncrouch_height;
+                let height_dist = uncrouch_height - controller.player_height;
+                let smooth = ((height_dist - (uncrouch_height - crouch_height) * 0.5) / ((uncrouch_height - crouch_height) * 0.5)).copysign(-1.0); // This is effectively to decelerate the movement at either end of the crouch, much like a "smoothstep"
+
+                if input.crouch {
+                    controller.player_height -= dt * controller.crouch_speed + smooth * (controller.crouch_speed - 0.4) * dt; 
+                } else {
+                    controller.player_height += dt * controller.uncrouch_speed + smooth * (controller.uncrouch_speed - 0.4) * dt;
+                }
+
+                controller.player_height = controller.player_height.clamp(crouch_height, uncrouch_height);
+
+                commands.entity(entity).remove::<Collider>();
+                commands.entity(entity).insert(Collider::capsule(Vec3::Y * 0.5, Vec3::Y * controller.player_height, 0.5));
+            */
             }
         }
     }

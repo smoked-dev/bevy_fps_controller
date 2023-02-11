@@ -51,6 +51,7 @@ fn setup(
     // where often time these two ideas are not exactly synced up
     commands.spawn((
         Collider::capsule(Vec3::Y * 0.5, Vec3::Y * 1.5, 0.5),
+        KinematicCharacterController {  translation: Some(Vec3::ZERO), ..default() },
         ActiveEvents::COLLISION_EVENTS,
         Velocity::zero(),
         RigidBody::Dynamic,
