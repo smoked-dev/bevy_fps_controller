@@ -193,11 +193,12 @@ pub fn fps_controller_move(
         &mut Collider,
         &mut Transform,
         &mut Velocity,
+        &CollisionGroups,
     )>,
 ) {
     let dt = time.delta_seconds();
 
-    for (entity, input, mut controller, mut collider, mut transform, mut velocity) in query.iter_mut() {
+    for (entity, input, mut controller, mut collider, mut transform, mut velocity, &groups) in query.iter_mut() {
         if input.fly {
             controller.move_mode = match controller.move_mode {
                 MoveMode::Noclip => MoveMode::Ground,
@@ -235,7 +236,7 @@ pub fn fps_controller_move(
                         capsule.radius * 0.9,
                     );
                     // Avoid self collisions
-                    let filter = QueryFilter::default().exclude_rigid_body(entity);
+                    let filter = QueryFilter::default().exclude_rigid_body(entity).groups(groups);
                     let ground_cast = physics_context.cast_shape(
                         transform.translation, transform.rotation,
                         -Vec3::Y,
@@ -367,13 +368,13 @@ pub fn fps_controller_move(
                     if controller.ground_tick >= 1 && input.crouch {
                         for _ in 0..2 {
                             // Find the component of our velocity that is overhanging and subtract it off
-                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt);
+                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups);
                             if let Some(overhang) = overhang {
                                 velocity.linvel -= overhang;
                             }
                         }
                         // If we are still overhanging consider unsolvable and freeze
-                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt).is_some() {
+                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups).is_some() {
                             velocity.linvel = Vec3::ZERO;
                         }
                     }
@@ -383,12 +384,12 @@ pub fn fps_controller_move(
     }
 }
 
-fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32) -> Option<Vec3> {
+fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32, groups: CollisionGroups) -> Option<Vec3> {
     // Cast a segment (zero radius on capsule) from our next position back towards us
     // If there is a ledge in front of us we will hit the edge of it
     // We can use the normal of the hit to subtract off the component that is overhanging
     let cast_capsule = Collider::capsule(Vec3::Y * 0.125, -Vec3::Y * 0.125, 0.0);
-    let filter = QueryFilter::default().exclude_rigid_body(entity);
+    let filter = QueryFilter::default().exclude_rigid_body(entity).groups(groups);
     let future_position = transform.translation + velocity * dt;
     let cast = physics_context.cast_shape(
         future_position, transform.rotation,

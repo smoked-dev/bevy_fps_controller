@@ -83,7 +83,7 @@ fn setup(
             air_acceleration: 80.0,
             ..default()
         }
-    ));
+    )).insert(CollisionGroups::new(Group::GROUP_1, Group::ALL));
     commands.spawn((
         Camera3dBundle {
             projection: Projection::Perspective(PerspectiveProjection {
