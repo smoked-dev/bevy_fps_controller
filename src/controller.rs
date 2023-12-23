@@ -75,6 +75,7 @@ pub struct FpsControllerInput {
     pub sprint: bool,
     pub jump: bool,
     pub crouch: bool,
+    pub dash: bool,
     pub pitch: f32,
     pub yaw: f32,
     pub movement: Vec3,
@@ -106,6 +107,10 @@ pub struct FpsController {
     pub height: f32,
     pub upright_height: f32,
     pub crouch_height: f32,
+    pub dash_speed: f32,
+    pub dash_time: f32,
+    pub dash_timeout: f32,
+    pub dash_last_time: f32,
     pub fast_fly_speed: f32,
     pub fly_friction: f32,
     pub pitch: f32,
@@ -145,6 +150,10 @@ impl Default for FpsController {
             crouched_speed: 5.0,
             crouch_speed: 6.0,
             uncrouch_speed: 8.0,
+            dash_speed: 25.,
+            dash_time: 0.25,
+            dash_timeout: 0.5,
+            dash_last_time: 0.,
             height: 1.5,
             upright_height: 2.0,
             crouch_height: 1.25,
@@ -211,7 +220,7 @@ pub fn fps_controller_input(
             get_axis(&key_input, controller.key_up, controller.key_down),
             get_axis(&key_input, controller.key_forward, controller.key_back),
         );
-        input.sprint = key_input.pressed(controller.key_sprint);
+        input.dash = key_input.just_pressed(controller.key_sprint);
         input.jump = key_input.pressed(controller.key_jump);
         input.fly = key_input.just_pressed(controller.key_fly);
         input.crouch = key_input.pressed(controller.key_crouch);
@@ -239,6 +248,7 @@ pub fn fps_controller_move(
     )>,
 ) {
     let dt = time.delta_seconds();
+    let t = time.elapsed_seconds();
 
     for (entity, input, mut controller, mut collider, mut transform, mut velocity, &groups) in query.iter_mut() {
         if input.fly {
@@ -306,6 +316,16 @@ pub fn fps_controller_move(
                     };
                     wish_speed = f32::min(wish_speed, max_speed);
 
+                    let mut dash = false;
+                    println!("{}", input.dash);
+                    if input.dash && t > controller.dash_last_time + controller.dash_timeout {
+                        controller.dash_last_time = t;
+                    }
+
+                    if t < controller.dash_last_time + controller.dash_time {
+                        dash = true;
+                    }
+
                     if let Some((toi, toi_details)) = toi_details_unwrap(ground_cast) {
                         let has_traction = Vec3::dot(toi_details.normal1, Vec3::Y) > controller.traction_normal_cutoff;
 
@@ -326,9 +346,10 @@ pub fn fps_controller_move(
                             }
                         }
 
+                        
                         let mut add = acceleration(
                             wish_direction,
-                            wish_speed,
+                            wish_speed * if dash { 5. } else { 1. },
                             controller.acceleration,
                             velocity.linvel,
                             dt,
@@ -353,22 +374,40 @@ pub fn fps_controller_move(
                         controller.ground_tick = 0;
                         wish_speed = f32::min(wish_speed, controller.air_speed_cap);
 
-                        let mut add = acceleration(
-                            wish_direction,
-                            wish_speed,
-                            controller.air_acceleration,
-                            velocity.linvel,
-                            dt,
-                        );
-                        add.y = -controller.gravity * dt;
-                        velocity.linvel += add;
 
-                        let air_speed = velocity.linvel.xz().length();
-                        if air_speed > controller.max_air_speed {
-                            let ratio = controller.max_air_speed / air_speed;
-                            velocity.linvel.x *= ratio;
-                            velocity.linvel.z *= ratio;
+
+                        if dash {
+                            let mut add = acceleration(
+                                wish_direction,
+                                wish_speed * 16.,
+                                controller.air_acceleration,
+                                velocity.linvel,
+                                dt,
+                            );
+
+                            add.y = -controller.gravity * dt;
+                            velocity.linvel += add;// * Vec3::new(32.,1.,32.);
+                        } else {
+                            let mut add = acceleration(
+                                wish_direction,
+                                wish_speed,
+                                controller.air_acceleration,
+                                velocity.linvel,
+                                dt,
+                            );
+
+                            add.y = -controller.gravity * dt;
+                            velocity.linvel += add;
+
+                            let air_speed = velocity.linvel.xz().length();
+                            if air_speed > controller.max_air_speed {
+                                let ratio = controller.max_air_speed / air_speed;
+                                velocity.linvel.x *= ratio;
+                                velocity.linvel.z *= ratio;
+                            }
                         }
+
+                        
                     }
 
                     /* Crouching */
