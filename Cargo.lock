@@ -556,11 +556,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_fps_controller"
-<<<<<<< HEAD
-version = "0.2.2"
-=======
 version = "0.2.4"
->>>>>>> c891b88d08b2359a288e7a1bef799060304e9c5f
 dependencies = [
  "bevy",
  "bevy_rapier3d",

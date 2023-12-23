@@ -284,6 +284,7 @@ pub fn fps_controller_move(
                         -Vec3::Y,
                         &cast_capsule,
                         0.125,
+                        true,
                         filter,
                     );
 
@@ -410,13 +411,13 @@ pub fn fps_controller_move(
                     if controller.ground_tick >= 1 && input.crouch {
                         for _ in 0..2 {
                             // Find the component of our velocity that is overhanging and subtract it off
-                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, &groups);
+                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups);
                             if let Some(overhang) = overhang {
                                 velocity.linvel -= overhang;
                             }
                         }
                         // If we are still overhanging consider unsolvable and freeze
-                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, &groups).is_some() {
+                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups).is_some() {
                             velocity.linvel = Vec3::ZERO;
                         }
                     }
@@ -435,7 +436,7 @@ fn toi_details_unwrap(ground_cast: Option<(Entity, Toi)>) -> Option<(Toi, ToiDet
     None
 }
 
-fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32, groups: &CollisionGroups) -> Option<Vec3> {
+fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32, groups: CollisionGroups) -> Option<Vec3> {
     // Cast a segment (zero radius on capsule) from our next position back towards us
     // If there is a ledge in front of us we will hit the edge of it
     // We can use the normal of the hit to subtract off the component that is overhanging
@@ -447,6 +448,7 @@ fn overhang_component(entity: Entity, transform: &Transform, physics_context: &R
         -velocity,
         &cast_capsule,
         0.5,
+        true,
         filter,
     );
     if let Some((_, toi_details)) = toi_details_unwrap(cast) {

@@ -84,11 +84,13 @@ fn setup(
                 air_acceleration: 80.0,
                 ..default()
             },
+            
         ))
         .insert(CameraConfig {
             height_offset: 0.0,
             radius_scale: 0.75,
         })
+        .insert(CollisionGroups::new(Group::ALL, Group::ALL))
         .id();
 
     commands.spawn((
