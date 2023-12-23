@@ -148,7 +148,7 @@ impl Default for FpsController {
             side_speed: 30.0,
             air_speed_cap: 2.0,
             air_acceleration: 20.0,
-            max_air_speed: 15.0,
+            max_air_speed: 50.0,
             crouched_speed: 5.0,
             crouch_speed: 6.0,
             uncrouch_speed: 8.0,
@@ -321,7 +321,7 @@ pub fn fps_controller_move(
                     wish_speed = f32::min(wish_speed, max_speed);
 
                     let mut dash = false;
-                    println!("{}", input.dash);
+                    
                     if input.dash && t > controller.dash_last_time + controller.dash_timeout {
                         controller.dash_last_time = t;
                     }
@@ -353,7 +353,7 @@ pub fn fps_controller_move(
                         
                         let mut add = acceleration(
                             wish_direction,
-                            wish_speed * if dash { 5. } else { 1. },
+                            if dash { controller.dash_speed } else { wish_speed },
                             controller.acceleration,
                             velocity.linvel,
                             dt,
@@ -387,7 +387,7 @@ pub fn fps_controller_move(
                         if dash {
                             let mut add = acceleration(
                                 wish_direction,
-                                wish_speed * 16.,
+                                controller.dash_speed,
                                 controller.air_acceleration,
                                 velocity.linvel,
                                 dt,
@@ -406,13 +406,12 @@ pub fn fps_controller_move(
 
                             add.y = -controller.gravity * dt;
                             velocity.linvel += add;
-
-                            let air_speed = velocity.linvel.xz().length();
-                            if air_speed > controller.max_air_speed {
-                                let ratio = controller.max_air_speed / air_speed;
-                                velocity.linvel.x *= ratio;
-                                velocity.linvel.z *= ratio;
-                            }
+                        }
+                        let air_speed = velocity.linvel.xz().length();
+                        if air_speed > controller.max_air_speed {
+                            let ratio = controller.max_air_speed / air_speed;
+                            velocity.linvel.x *= ratio;
+                            velocity.linvel.z *= ratio;
                         }
 
                         
