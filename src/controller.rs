@@ -74,6 +74,7 @@ pub struct FpsControllerInput {
     pub fly: bool,
     pub sprint: bool,
     pub jump: bool,
+    pub double_jump: bool,
     pub crouch: bool,
     pub dash: bool,
     pub pitch: f32,
@@ -111,6 +112,7 @@ pub struct FpsController {
     pub dash_time: f32,
     pub dash_timeout: f32,
     pub dash_last_time: f32,
+    pub double_jump: bool,
     pub fast_fly_speed: f32,
     pub fly_friction: f32,
     pub pitch: f32,
@@ -154,6 +156,7 @@ impl Default for FpsController {
             dash_time: 0.25,
             dash_timeout: 0.5,
             dash_last_time: 0.,
+            double_jump: true,
             height: 1.5,
             upright_height: 2.0,
             crouch_height: 1.25,
@@ -222,6 +225,7 @@ pub fn fps_controller_input(
         );
         input.dash = key_input.just_pressed(controller.key_sprint);
         input.jump = key_input.pressed(controller.key_jump);
+        input.double_jump = key_input.just_pressed(controller.key_jump);
         input.fly = key_input.just_pressed(controller.key_fly);
         input.crouch = key_input.pressed(controller.key_crouch);
     }
@@ -370,11 +374,15 @@ pub fn fps_controller_move(
 
                         // Increment ground tick but cap at max value
                         controller.ground_tick = controller.ground_tick.saturating_add(1);
+                        controller.double_jump = true;
                     } else {
                         controller.ground_tick = 0;
                         wish_speed = f32::min(wish_speed, controller.air_speed_cap);
 
-
+                        if input.double_jump && controller.double_jump {
+                            velocity.linvel.y = controller.jump_speed;
+                            controller.double_jump = false;
+                        }
 
                         if dash {
                             let mut add = acceleration(
