@@ -7,11 +7,45 @@ use bevy::{
 };
 use bevy_rapier3d::prelude::*;
 
+/// Manages the FPS controllers. Executes in `PreUpdate`, after bevy's internal
+/// input processing is finished.
+///
+/// If you need a system in `PreUpdate` to execute after FPS Controller's systems, 
+/// Do it like so:
+///
+/// ```
+/// # use bevy::prelude::*;
+///
+/// struct MyPlugin;
+/// impl Plugin for MyPlugin {
+///     fn build(&self, app: &mut App) {
+///         app.add_systems(
+///             PreUpdate,
+///             (my_system).after( bevy_fps_controller::controller::fps_controller_render )
+///         );
+///     }
+/// }
+///
+/// fn my_system() { }
+/// ```
 pub struct FpsControllerPlugin;
 
 impl Plugin for FpsControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (fps_controller_input, fps_controller_look, fps_controller_move, fps_controller_render).chain());
+        use bevy::input::{mouse, keyboard, gamepad, touch};
+
+        app.add_systems(
+            PreUpdate,
+            (fps_controller_input, fps_controller_look, fps_controller_move, fps_controller_render)
+                .chain()
+                .after(mouse::mouse_button_input_system)
+                .after(keyboard::keyboard_input_system)
+                .after(gamepad::gamepad_axis_event_system)
+                .after(gamepad::gamepad_button_event_system)
+                .after(gamepad::gamepad_connection_system)
+                .after(gamepad::gamepad_event_system)
+                .after(touch::touch_screen_input_system),
+        );
     }
 }
 
@@ -22,10 +56,18 @@ pub enum MoveMode {
 }
 
 #[derive(Component)]
-pub struct LogicalPlayer(pub u8);
+pub struct LogicalPlayer;
 
 #[derive(Component)]
-pub struct RenderPlayer(pub u8);
+pub struct RenderPlayer {
+    pub logical_entity: Entity,
+}
+
+#[derive(Component)]
+pub struct CameraConfig {
+    pub height_offset: f32,
+    pub radius_scale: f32,
+}
 
 #[derive(Component, Default)]
 pub struct FpsControllerInput {
@@ -153,7 +195,7 @@ pub fn fps_controller_input(
         }
 
         let mut mouse_delta = Vec2::ZERO;
-        for mouse_event in mouse_events.iter() {
+        for mouse_event in mouse_events.read() {
             mouse_delta += mouse_event.delta;
         }
         mouse_delta *= controller.sensitivity;
@@ -263,8 +305,8 @@ pub fn fps_controller_move(
                     };
                     wish_speed = f32::min(wish_speed, max_speed);
 
-                    if let Some((_, toi)) = ground_cast {
-                        let has_traction = Vec3::dot(toi.normal1, Vec3::Y) > controller.traction_normal_cutoff;
+                    if let Some((toi, toi_details)) = toi_details_unwrap(ground_cast) {
+                        let has_traction = Vec3::dot(toi_details.normal1, Vec3::Y) > controller.traction_normal_cutoff;
 
                         // Only apply friction after at least one tick, allows b-hopping without losing speed
                         if controller.ground_tick >= 1 && has_traction {
@@ -297,7 +339,7 @@ pub fn fps_controller_move(
 
                         if has_traction {
                             let linvel = velocity.linvel;
-                            velocity.linvel -= Vec3::dot(linvel, toi.normal1) * toi.normal1;
+                            velocity.linvel -= Vec3::dot(linvel, toi_details.normal1) * toi_details.normal1;
 
                             if input.jump {
                                 velocity.linvel.y = controller.jump_speed;
@@ -368,13 +410,13 @@ pub fn fps_controller_move(
                     if controller.ground_tick >= 1 && input.crouch {
                         for _ in 0..2 {
                             // Find the component of our velocity that is overhanging and subtract it off
-                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups);
+                            let overhang = overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, &groups);
                             if let Some(overhang) = overhang {
                                 velocity.linvel -= overhang;
                             }
                         }
                         // If we are still overhanging consider unsolvable and freeze
-                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, groups).is_some() {
+                        if overhang_component(entity, transform.as_ref(), physics_context.as_ref(), velocity.linvel, dt, &groups).is_some() {
                             velocity.linvel = Vec3::ZERO;
                         }
                     }
@@ -384,7 +426,16 @@ pub fn fps_controller_move(
     }
 }
 
-fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32, groups: CollisionGroups) -> Option<Vec3> {
+fn toi_details_unwrap(ground_cast: Option<(Entity, Toi)>) -> Option<(Toi, ToiDetails)> {
+    if let Some((_, toi)) = ground_cast {
+        if let Some(details) = toi.details {
+            return Some((toi, details));
+        }
+    }
+    None
+}
+
+fn overhang_component(entity: Entity, transform: &Transform, physics_context: &RapierContext, velocity: Vec3, dt: f32, groups: &CollisionGroups) -> Option<Vec3> {
     // Cast a segment (zero radius on capsule) from our next position back towards us
     // If there is a ledge in front of us we will hit the edge of it
     // We can use the normal of the hit to subtract off the component that is overhanging
@@ -398,7 +449,7 @@ fn overhang_component(entity: Entity, transform: &Transform, physics_context: &R
         0.5,
         filter,
     );
-    if let Some((_, toi)) = cast {
+    if let Some((_, toi_details)) = toi_details_unwrap(cast) {
         let cast = physics_context.cast_ray(
             future_position + Vec3::Y * 0.125, -Vec3::Y,
             0.375,
@@ -407,7 +458,7 @@ fn overhang_component(entity: Entity, transform: &Transform, physics_context: &R
         );
         // Make sure that this is actually a ledge, e.g. there is no ground in front of us
         if cast.is_none() {
-            let normal = -toi.normal1;
+            let normal = -toi_details.normal1;
             let alignment = Vec3::dot(velocity, normal);
             return Some(alignment * normal);
         }
@@ -446,21 +497,13 @@ fn get_axis(key_input: &Res<Input<KeyCode>>, key_pos: KeyCode, key_neg: KeyCode)
 // ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 
 pub fn fps_controller_render(
-    logical_query: Query<
-        (&Transform, &Collider, &FpsController, &LogicalPlayer),
-        With<LogicalPlayer>,
-    >,
-    mut render_query: Query<(&mut Transform, &RenderPlayer), Without<LogicalPlayer>>,
+    mut render_query: Query<(&mut Transform, &RenderPlayer), With<RenderPlayer>>,
+    logical_query: Query<(&Transform, &Collider, &FpsController, &CameraConfig), (With<LogicalPlayer>, Without<RenderPlayer>)>,
 ) {
-    // TODO: inefficient O(N^2) loop, use hash map?
-    for (logical_transform, collider, controller, logical_player_id) in logical_query.iter() {
-        if let Some(capsule) = collider.as_capsule() {
-            for (mut render_transform, render_player_id) in render_query.iter_mut() {
-                if logical_player_id.0 != render_player_id.0 {
-                    continue;
-                }
-                // TODO: let this be more configurable
-                let camera_height = capsule.segment().b().y + capsule.radius() * 0.75;
+    for (mut render_transform, render_player) in render_query.iter_mut() {
+        if let Ok((logical_transform, collider, controller, camera_config)) = logical_query.get(render_player.logical_entity) {
+            if let Some(capsule) = collider.as_capsule() {
+                let camera_height = capsule.segment().b().y + capsule.radius() * camera_config.radius_scale + camera_config.height_offset;
                 render_transform.translation = logical_transform.translation + Vec3::Y * camera_height;
                 render_transform.rotation = Quat::from_euler(EulerRot::YXZ, controller.yaw, controller.pitch, 0.0);
             }

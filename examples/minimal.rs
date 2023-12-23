@@ -54,36 +54,43 @@ fn setup(
     // The other is a "render" player that is what is displayed to the user
     // This distinction is useful for later on if you want to add multiplayer,
     // where often time these two ideas are not exactly synced up
-    commands.spawn((
-        Collider::capsule(Vec3::Y * 0.5, Vec3::Y * 1.5, 0.5),
-        Friction {
-            coefficient: 0.0,
-            combine_rule: CoefficientCombineRule::Min,
-        },
-        Restitution {
-            coefficient: 0.0,
-            combine_rule: CoefficientCombineRule::Min,
-        },
-        ActiveEvents::COLLISION_EVENTS,
-        Velocity::zero(),
-        RigidBody::Dynamic,
-        Sleeping::disabled(),
-        LockedAxes::ROTATION_LOCKED,
-        AdditionalMassProperties::Mass(1.0),
-        GravityScale(0.0),
-        Ccd { enabled: true }, // Prevent clipping when going fast
-        TransformBundle::from_transform(Transform::from_translation(SPAWN_POINT)),
-        LogicalPlayer(0),
-        FpsControllerInput {
-            pitch: -TAU / 12.0,
-            yaw: TAU * 5.0 / 8.0,
-            ..default()
-        },
-        FpsController {
-            air_acceleration: 80.0,
-            ..default()
-        }
-    )).insert(CollisionGroups::new(Group::GROUP_1, Group::ALL));
+    let logical_entity = commands
+        .spawn((
+            Collider::capsule(Vec3::Y * 0.5, Vec3::Y * 1.5, 0.5),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            ActiveEvents::COLLISION_EVENTS,
+            Velocity::zero(),
+            RigidBody::Dynamic,
+            Sleeping::disabled(),
+            LockedAxes::ROTATION_LOCKED,
+            AdditionalMassProperties::Mass(1.0),
+            GravityScale(0.0),
+            Ccd { enabled: true }, // Prevent clipping when going fast
+            TransformBundle::from_transform(Transform::from_translation(SPAWN_POINT)),
+            LogicalPlayer,
+            FpsControllerInput {
+                pitch: -TAU / 12.0,
+                yaw: TAU * 5.0 / 8.0,
+                ..default()
+            },
+            FpsController {
+                air_acceleration: 80.0,
+                ..default()
+            },
+        ))
+        .insert(CameraConfig {
+            height_offset: 0.0,
+            radius_scale: 0.75,
+        })
+        .id();
+
     commands.spawn((
         Camera3dBundle {
             projection: Projection::Perspective(PerspectiveProjection {
@@ -92,7 +99,7 @@ fn setup(
             }),
             ..default()
         },
-        RenderPlayer(0),
+        RenderPlayer { logical_entity },
     ));
 
     commands.insert_resource(MainScene {
@@ -155,7 +162,7 @@ fn scene_colliders(
             ..default()
         });
         for node in &gltf.nodes {
-            let node = gltf_node_assets.get(&node).unwrap();
+            let node = gltf_node_assets.get(node).unwrap();
             if let Some(gltf_mesh) = node.mesh.clone() {
                 let gltf_mesh = gltf_mesh_assets.get(&gltf_mesh).unwrap();
                 for mesh_primitive in &gltf_mesh.primitives {
