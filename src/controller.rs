@@ -388,7 +388,7 @@ pub fn fps_controller_move(
                             let mut add = acceleration(
                                 wish_direction,
                                 controller.dash_speed,
-                                controller.air_acceleration,
+                                controller.air_acceleration + controller.dash_speed,
                                 velocity.linvel,
                                 dt,
                             );
