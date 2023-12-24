@@ -153,7 +153,7 @@ impl Default for FpsController {
             crouch_speed: 6.0,
             uncrouch_speed: 8.0,
             dash_speed: 25.,
-            dash_time: 0.25,
+            dash_time: 0.2,
             dash_timeout: 0.5,
             dash_last_time: 0.,
             double_jump: true,
@@ -350,14 +350,24 @@ pub fn fps_controller_move(
                             }
                         }
 
-                        
-                        let mut add = acceleration(
-                            wish_direction,
-                            if dash { controller.dash_speed } else { wish_speed },
-                            controller.acceleration,
-                            velocity.linvel,
-                            dt,
-                        );
+                        let mut add = if dash {
+                            acceleration(
+                                wish_direction,
+                                controller.dash_speed,
+                                controller.acceleration + controller.dash_speed,
+                                velocity.linvel,
+                                dt,
+                            )
+                        } else {
+                            acceleration(
+                                wish_direction,
+                                wish_speed,
+                                controller.acceleration,
+                                velocity.linvel,
+                                dt,
+                            )
+                        };
+
                         if !has_traction {
                             add.y -= controller.gravity * dt;
                         }
@@ -385,8 +395,10 @@ pub fn fps_controller_move(
                         }
 
                         if dash {
+                            let mul = (1.0 - ((t - controller.dash_last_time) / controller.dash_time).min(1.0) - 0.4);
+
                             let mut add = acceleration(
-                                wish_direction,
+                                wish_direction * mul,
                                 controller.dash_speed,
                                 controller.air_acceleration + controller.dash_speed,
                                 velocity.linvel,
