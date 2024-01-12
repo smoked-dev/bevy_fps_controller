@@ -398,7 +398,7 @@ pub fn fps_controller_move(
                             let mul = (1.0 - ((t - controller.dash_last_time) / controller.dash_time).min(1.0) - 0.4);
 
                             let mut add = acceleration(
-                                wish_direction * mul,
+                                wish_direction ,
                                 controller.dash_speed,
                                 controller.air_acceleration + controller.dash_speed,
                                 velocity.linvel,
