@@ -99,6 +99,7 @@ pub struct FpsControllerInput {
     pub yaw: f32,
     pub movement: Vec3,
     pub mouse_delta: Vec2,
+    pub mouse_delta: Vec2,
 }
 
 #[derive(Component)]
@@ -264,6 +265,7 @@ pub fn fps_controller_input(
 
 pub fn fps_controller_look(mut query: Query<(&mut FpsController, &FpsControllerInput)>) {
     for (mut controller, input) in query.iter_mut() {
+        controller.mouse_delta = input.mouse_delta;
         controller.mouse_delta = input.mouse_delta;
         controller.pitch = input.pitch;
         controller.yaw = input.yaw;
