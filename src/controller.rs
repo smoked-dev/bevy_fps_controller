@@ -80,6 +80,7 @@ pub struct FpsControllerInput {
     pub pitch: f32,
     pub yaw: f32,
     pub movement: Vec3,
+    pub mouse_delta: Vec2,
 }
 
 #[derive(Component)]
@@ -117,8 +118,7 @@ pub struct FpsController {
     pub fly_friction: f32,
     pub pitch: f32,
     pub yaw: f32,
-    pub pitch_speed: f32,
-    pub yaw_speed: f32,
+    pub mouse_delta: Vec2,
     pub ground_tick: u8,
     pub stop_speed: f32,
     pub sensitivity: f32,
@@ -169,8 +169,7 @@ impl Default for FpsController {
             fly_friction: 0.5,
             pitch: 0.0,
             yaw: 0.0,
-            pitch_speed: 0.0,
-            yaw_speed: 0.0,
+            mouse_delta: Vec2::ZERO,
             ground_tick: 0,
             stop_speed: 1.0,
             jump_speed: 8.5,
@@ -232,13 +231,13 @@ pub fn fps_controller_input(
         input.double_jump = key_input.just_pressed(controller.key_jump);
         input.fly = key_input.just_pressed(controller.key_fly);
         input.crouch = key_input.pressed(controller.key_crouch);
+        input.mouse_delta = mouse_delta;
     }
 }
 
 pub fn fps_controller_look(mut query: Query<(&mut FpsController, &FpsControllerInput)>) {
     for (mut controller, input) in query.iter_mut() {
-        controller.pitch_speed = input.pitch - controller.pitch;
-        controller.yaw_speed = input.yaw - controller.yaw;
+        controller.mouse_delta = input.mouse_delta;
         controller.pitch = input.pitch;
         controller.yaw = input.yaw;
     }
