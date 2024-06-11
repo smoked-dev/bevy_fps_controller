@@ -77,6 +77,7 @@ pub struct FpsControllerInput {
     pub double_jump: bool,
     pub crouch: bool,
     pub dash: bool,
+    pub dash_wallrun: bool,
     pub pitch: f32,
     pub yaw: f32,
     pub movement: Vec3,
@@ -134,6 +135,7 @@ pub struct FpsController {
     pub key_jump: KeyCode,
     pub key_fly: KeyCode,
     pub key_crouch: KeyCode,
+    pub key_dash_wallrun: KeyCode,
 }
 
 impl Default for FpsController {
@@ -185,6 +187,7 @@ impl Default for FpsController {
             key_jump: KeyCode::Space,
             key_fly: KeyCode::F,
             key_crouch: KeyCode::ControlLeft,
+            key_dash_wallrun: KeyCode::R,
             sensitivity: 0.001,
         }
     }
@@ -231,6 +234,7 @@ pub fn fps_controller_input(
         input.double_jump = key_input.just_pressed(controller.key_jump);
         input.fly = key_input.just_pressed(controller.key_fly);
         input.crouch = key_input.pressed(controller.key_crouch);
+        input.dash_wallrun = key_input.pressed(controller.key_dash_wallrun);
         input.mouse_delta = mouse_delta;
     }
 }
@@ -307,6 +311,15 @@ pub fn fps_controller_move(
                         filter,
                     );
 
+                    let wall_cast = physics_context.cast_shape(
+                        transform.translation, transform.rotation,
+                        velocity.linvel.normalize_or_zero(),
+                        &cast_capsule,
+                        0.125,
+                        true,
+                        filter,
+                    );
+
                     let speeds = Vec3::new(controller.side_speed, 0.0, controller.forward_speed);
                     let mut move_to_world = Mat3::from_axis_angle(Vec3::Y, input.yaw);
                     move_to_world.z_axis *= -1.0; // Forward is -Z
@@ -333,6 +346,14 @@ pub fn fps_controller_move(
 
                     if t < controller.dash_last_time + controller.dash_time {
                         dash = true;
+                    }
+
+                    if let Some((toi, toi_details)) = toi_details_unwrap(wall_cast) {
+                        if input.dash_wallrun {
+                            velocity.linvel = -2. * (toi_details.normal1.dot(velocity.linvel)) * toi_details.normal1 + velocity.linvel;
+                            velocity.linvel.y = controller.jump_speed;
+                        }
+                    //    if controller.ground_tick
                     }
 
                     if let Some((toi, toi_details)) = toi_details_unwrap(ground_cast) {
@@ -383,6 +404,9 @@ pub fn fps_controller_move(
                             velocity.linvel -= Vec3::dot(linvel, toi_details.normal1) * toi_details.normal1;
 
                             if input.jump {
+                                velocity.linvel.y = controller.jump_speed;
+                            } else if input.dash_wallrun {
+                                velocity.linvel = move_to_world.z_axis * velocity.linvel.length();
                                 velocity.linvel.y = controller.jump_speed;
                             }
                         }

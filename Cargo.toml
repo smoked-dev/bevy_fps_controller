@@ -22,6 +22,7 @@ bevy = { version = "0.12.1", default-features = false, features = [
     "bevy_gltf",
     "bevy_scene",
     "bevy_pbr",
+    "png",
     "tonemapping_luts",
     "ktx2",
     "zstd",
