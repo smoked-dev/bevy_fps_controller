@@ -45,8 +45,17 @@ impl Plugin for FpsControllerPlugin {
                 .after(gamepad::gamepad_connection_system)
                 .after(gamepad::gamepad_event_system)
                 .after(touch::touch_screen_input_system),
-        );
+        ).add_event::<FpsControllerEvent>();
     }
+}
+
+
+#[derive(Event)]
+pub enum FpsControllerEvent {
+    Jump,
+    DoubleJump,
+    BunnyHop,
+    Dash,
 }
 
 #[derive(PartialEq)]
@@ -250,6 +259,7 @@ pub fn fps_controller_look(mut query: Query<(&mut FpsController, &FpsControllerI
 pub fn fps_controller_move(
     time: Res<Time>,
     physics_context: Res<RapierContext>,
+    mut events: EventWriter<FpsControllerEvent>,
     mut query: Query<(
         Entity,
         &FpsControllerInput,
@@ -405,6 +415,7 @@ pub fn fps_controller_move(
 
                             if input.jump {
                                 velocity.linvel.y = controller.jump_speed;
+                                events.send(FpsControllerEvent::Jump);
                             } else if input.dash_wallrun {
                                 velocity.linvel = move_to_world.z_axis * velocity.linvel.length();
                                 velocity.linvel.y = controller.jump_speed;
@@ -421,6 +432,7 @@ pub fn fps_controller_move(
                         if input.double_jump && controller.double_jump {
                             velocity.linvel.y = controller.jump_speed;
                             controller.double_jump = false;
+                            events.send(FpsControllerEvent::DoubleJump);
                         }
 
                         if dash {
