@@ -325,7 +325,7 @@ pub fn fps_controller_move(
                         transform.translation, transform.rotation,
                         velocity.linvel.normalize_or_zero(),
                         &cast_capsule,
-                        0.125,
+                        0.125 * 2.,
                         true,
                         filter,
                     );
