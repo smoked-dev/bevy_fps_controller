@@ -61,9 +61,9 @@ pub enum FpsEvent {
 
 #[derive(Event)]
 pub struct FpsControllerEvent {
-    normal: Vec3,
-    origin: Vec3,
-    event: FpsEvent,
+    pub normal: Vec3,
+    pub origin: Vec3,
+    pub event: FpsEvent,
 }
 
 #[derive(PartialEq)]
