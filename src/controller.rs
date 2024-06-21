@@ -428,8 +428,10 @@ pub fn fps_controller_move(
 
                             if input.jump {
                                 velocity.linvel.y = controller.jump_speed;
+                                events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::Jump });
                            //     events.send(FpsControllerEvent::Jump);
                             } else if input.dash_wallrun {
+                                events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::Dash });
                                 velocity.linvel = move_to_world.z_axis * velocity.linvel.length();
                                 velocity.linvel.y = controller.jump_speed;
                             }
@@ -445,6 +447,7 @@ pub fn fps_controller_move(
                         if input.double_jump && controller.double_jump {
                             velocity.linvel.y = controller.jump_speed;
                             controller.double_jump = false;
+                            events.send(FpsControllerEvent { normal: Vec3::Y, origin: transform.translation, event: FpsEvent::DoubleJump });
                      //       events.send(FpsControllerEvent::DoubleJump);
                         }
 
