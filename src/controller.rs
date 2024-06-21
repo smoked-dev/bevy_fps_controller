@@ -50,12 +50,20 @@ impl Plugin for FpsControllerPlugin {
 }
 
 
-#[derive(Event)]
-pub enum FpsControllerEvent {
+pub enum FpsEvent {
     Jump,
+    WallJump,
+    WallDash,
     DoubleJump,
     BunnyHop,
     Dash,
+}
+
+#[derive(Event)]
+pub struct FpsControllerEvent {
+    normal: Vec3,
+    origin: Vec3,
+    event: FpsEvent,
 }
 
 #[derive(PartialEq)]
@@ -325,7 +333,7 @@ pub fn fps_controller_move(
                         transform.translation, transform.rotation,
                         velocity.linvel.normalize_or_zero(),
                         &cast_capsule,
-                        0.125 * 2.,
+                        0.3,
                         true,
                         filter,
                     );
@@ -361,6 +369,11 @@ pub fn fps_controller_move(
                     if let Some((toi, toi_details)) = toi_details_unwrap(wall_cast) {
                         if input.dash_wallrun {
                             velocity.linvel = -2. * (toi_details.normal1.dot(velocity.linvel)) * toi_details.normal1 + velocity.linvel;
+                            velocity.linvel.y = controller.jump_speed;
+                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: transform.translation + velocity.linvel * toi.toi, event: FpsEvent::WallDash });
+                        }
+                        if input.jump {
+                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: transform.translation + velocity.linvel * toi.toi, event: FpsEvent::WallJump });
                             velocity.linvel.y = controller.jump_speed;
                         }
                     //    if controller.ground_tick
@@ -415,7 +428,7 @@ pub fn fps_controller_move(
 
                             if input.jump {
                                 velocity.linvel.y = controller.jump_speed;
-                                events.send(FpsControllerEvent::Jump);
+                           //     events.send(FpsControllerEvent::Jump);
                             } else if input.dash_wallrun {
                                 velocity.linvel = move_to_world.z_axis * velocity.linvel.length();
                                 velocity.linvel.y = controller.jump_speed;
@@ -432,7 +445,7 @@ pub fn fps_controller_move(
                         if input.double_jump && controller.double_jump {
                             velocity.linvel.y = controller.jump_speed;
                             controller.double_jump = false;
-                            events.send(FpsControllerEvent::DoubleJump);
+                     //       events.send(FpsControllerEvent::DoubleJump);
                         }
 
                         if dash {
