@@ -370,10 +370,10 @@ pub fn fps_controller_move(
                         if input.dash_wallrun {
                             velocity.linvel = -2. * (toi_details.normal1.dot(velocity.linvel)) * toi_details.normal1 + velocity.linvel;
                             velocity.linvel.y = controller.jump_speed;
-                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: transform.translation + velocity.linvel * toi.toi, event: FpsEvent::WallDash });
+                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash });
                         }
                         if input.jump {
-                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: transform.translation + velocity.linvel * toi.toi, event: FpsEvent::WallJump });
+                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallJump });
                             velocity.linvel.y = controller.jump_speed;
                         }
                     //    if controller.ground_tick
