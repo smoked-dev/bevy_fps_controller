@@ -194,17 +194,17 @@ impl Default for FpsController {
             jump_speed: 8.5,
             step_offset: 0.0,
             enable_input: true,
-            key_forward: KeyCode::W,
-            key_back: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
-            key_up: KeyCode::Q,
-            key_down: KeyCode::E,
+            key_forward: KeyCode::KeyW,
+            key_back: KeyCode::KeyS,
+            key_left: KeyCode::KeyA,
+            key_right: KeyCode::KeyD,
+            key_up: KeyCode::KeyQ,
+            key_down: KeyCode::KeyE,
             key_sprint: KeyCode::ShiftLeft,
             key_jump: KeyCode::Space,
-            key_fly: KeyCode::F,
+            key_fly: KeyCode::KeyF,
             key_crouch: KeyCode::ControlLeft,
-            key_dash_wallrun: KeyCode::R,
+            key_dash_wallrun: KeyCode::KeyR,
             sensitivity: 0.001,
         }
     }
@@ -220,7 +220,7 @@ impl Default for FpsController {
 const ANGLE_EPSILON: f32 = 0.001953125;
 
 pub fn fps_controller_input(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_events: EventReader<MouseMotion>,
     mut query: Query<(&FpsController, &mut FpsControllerInput)>,
 ) {
@@ -594,7 +594,7 @@ fn acceleration(wish_direction: Vec3, wish_speed: f32, acceleration: f32, veloci
     wish_direction * acceleration_speed
 }
 
-fn get_pressed(key_input: &Res<Input<KeyCode>>, key: KeyCode) -> f32 {
+fn get_pressed(key_input: &Res<ButtonInput<KeyCode>>, key: KeyCode) -> f32 {
     if key_input.pressed(key) {
         1.0
     } else {
@@ -602,7 +602,7 @@ fn get_pressed(key_input: &Res<Input<KeyCode>>, key: KeyCode) -> f32 {
     }
 }
 
-fn get_axis(key_input: &Res<Input<KeyCode>>, key_pos: KeyCode, key_neg: KeyCode) -> f32 {
+fn get_axis(key_input: &Res<ButtonInput<KeyCode>>, key_pos: KeyCode, key_neg: KeyCode) -> f32 {
     get_pressed(key_input, key_pos) - get_pressed(key_input, key_neg)
 }
 

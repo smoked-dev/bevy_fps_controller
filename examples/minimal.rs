@@ -182,8 +182,8 @@ fn scene_colliders(
 }
 
 fn manage_cursor(
-    btn: Res<Input<MouseButton>>,
-    key: Res<Input<KeyCode>>,
+    btn: Res<ButtonInput<MouseButton>>,
+    key: Res<ButtonInput<KeyCode>>,
     mut window_query: Query<&mut Window>,
     mut controller_query: Query<&mut FpsController>,
 ) {
