@@ -28,7 +28,7 @@ bevy = { version = "0.13.2", default-features = false, features = [
     "zstd",
     "multi-threaded",
 ] }
-bevy_rapier3d = "0.25.0"
+bevy_rapier3d = { version = "0.25.0", features = [ "simd-stable", "parallel" ] }
 
 [[example]]
 name = "minimal"
