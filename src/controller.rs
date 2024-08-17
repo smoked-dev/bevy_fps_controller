@@ -331,7 +331,7 @@ pub fn fps_controller_move(
                         filter,
                     );
 
-                    let walldash_vel = controller.last_velocity + velocity.linvel;
+                    let walldash_vel = controller.last_velocity;
 
                     let wall_cast = physics_context.cast_shape(
                         transform.translation, transform.rotation,
