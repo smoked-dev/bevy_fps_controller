@@ -137,6 +137,7 @@ pub struct FpsController {
     pub pitch: f32,
     pub yaw: f32,
     pub mouse_delta: Vec2,
+    pub last_velocity: Vec3,
     pub ground_tick: u8,
     pub stop_speed: f32,
     pub sensitivity: f32,
@@ -189,6 +190,7 @@ impl Default for FpsController {
             pitch: 0.0,
             yaw: 0.0,
             mouse_delta: Vec2::ZERO,
+            last_velocity: Vec3::ZERO,
             ground_tick: 0,
             stop_speed: 1.0,
             jump_speed: 8.5,
@@ -329,9 +331,11 @@ pub fn fps_controller_move(
                         filter,
                     );
 
+                    let walldash_vel = controller.last_velocity + velocity.linvel;
+
                     let wall_cast = physics_context.cast_shape(
                         transform.translation, transform.rotation,
-                        velocity.linvel.normalize_or_zero(),
+                        walldash_vel.normalize_or_zero(),
                         &cast_capsule,
                         0.3,
                         true,
@@ -368,7 +372,7 @@ pub fn fps_controller_move(
 
                     if let Some((toi, toi_details)) = toi_details_unwrap(wall_cast) {
                         if input.dash_wallrun {
-                            velocity.linvel = -2. * (toi_details.normal1.dot(velocity.linvel)) * toi_details.normal1 + velocity.linvel;
+                            velocity.linvel = -2. * (toi_details.normal1.dot(walldash_vel)) * toi_details.normal1 + walldash_vel;
                             velocity.linvel.y = controller.jump_speed;
                             if let Some((entity, toi)) = wall_cast {
                                 events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash(entity) });
@@ -540,6 +544,8 @@ pub fn fps_controller_move(
                             velocity.linvel = Vec3::ZERO;
                         }
                     }
+
+                    controller.last_velocity = velocity.linvel;
                 }
             }
         }
