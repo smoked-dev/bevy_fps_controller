@@ -53,7 +53,7 @@ impl Plugin for FpsControllerPlugin {
 pub enum FpsEvent {
     Jump,
     WallJump,
-    WallDash,
+    WallDash(Entity),
     DoubleJump,
     BunnyHop,
     Dash,
@@ -370,7 +370,11 @@ pub fn fps_controller_move(
                         if input.dash_wallrun {
                             velocity.linvel = -2. * (toi_details.normal1.dot(velocity.linvel)) * toi_details.normal1 + velocity.linvel;
                             velocity.linvel.y = controller.jump_speed;
-                            events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash });
+                            if let Some((entity, toi)) = wall_cast {
+                                events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash(entity) });
+                            } else {
+                                events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash(Entity::PLACEHOLDER) });
+                            }
                         }
                         if input.jump {
                             events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallJump });
