@@ -380,6 +380,7 @@ pub fn fps_controller_move(
                             } else {
                                 events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallDash(Entity::PLACEHOLDER) });
                             }
+                            controller.double_jump = true;
                         }
                         if input.jump {
                             events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::WallJump });
@@ -443,6 +444,7 @@ pub fn fps_controller_move(
                                 events.send(FpsControllerEvent { normal: toi_details.normal1, origin: toi_details.witness1, event: FpsEvent::Dash });
                                 velocity.linvel = move_to_world.z_axis * velocity.linvel.length();
                                 velocity.linvel.y = controller.jump_speed;
+                                controller.double_jump = true;
                             }
                         }
 
