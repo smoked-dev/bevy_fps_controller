@@ -26,7 +26,7 @@ bevy = { version = "0.14.2", default-features = false, features = [
     "tonemapping_luts",
     "ktx2",
     "zstd",
-    "multi-threaded",
+    "multi_threaded",
 ] }
 bevy_rapier3d = { version = "0.27.0", features = [ "simd-stable", "parallel" ] }
 
