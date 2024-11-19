@@ -1,47 +1,45 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    gltf::{GltfMesh, GltfNode},
-    gltf::Gltf,
+    gltf::{Gltf, GltfMesh, GltfNode},
     math::Vec3Swizzles,
     prelude::*,
+    render::camera::Exposure,
     window::CursorGrabMode,
 };
 use bevy_rapier3d::prelude::*;
 
 use bevy_fps_controller::controller::*;
 
-const SPAWN_POINT: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const SPAWN_POINT: Vec3 = Vec3::new(0.0, 1.625, 0.0);
 
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 0.5,
+            brightness: 10000.0,
         })
-        .insert_resource(ClearColor(Color::hex("D4F5F5").unwrap()))
-        .insert_resource(RapierConfiguration::default())
+        .insert_resource(ClearColor(Color::linear_rgb(0.83, 0.96, 0.96)))
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         // .add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(FpsControllerPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (manage_cursor, scene_colliders, display_text, respawn))
+        .add_systems(
+            Update,
+            (manage_cursor, scene_colliders, display_text, respawn),
+        )
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut window: Query<&mut Window>,
-    assets: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, mut window: Query<&mut Window>, assets: Res<AssetServer>) {
     let mut window = window.single_mut();
     window.title = String::from("Minimal FPS Controller Example");
     // commands.spawn(Window { title: "Minimal FPS Controller Example".to_string(), ..default() });
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 6000.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
@@ -54,9 +52,14 @@ fn setup(
     // The other is a "render" player that is what is displayed to the user
     // This distinction is useful for later on if you want to add multiplayer,
     // where often time these two ideas are not exactly synced up
+    let height = 3.0;
     let logical_entity = commands
         .spawn((
-            Collider::capsule(Vec3::Y * 0.5, Vec3::Y * 1.5, 0.5),
+            Collider::cylinder(height / 2.0, 0.5),
+            // A capsule can be used but is NOT recommended
+            // If you use it, you have to make sure each segment point is
+            // equidistant from the translation of the player transform
+            // Collider::capsule_y(height / 2.0, 0.5),
             Friction {
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
@@ -84,13 +87,10 @@ fn setup(
                 air_acceleration: 80.0,
                 ..default()
             },
-            
         ))
         .insert(CameraConfig {
-            height_offset: 0.0,
-            radius_scale: 0.75,
+            height_offset: -0.5,
         })
-        .insert(CollisionGroups::new(Group::ALL, Group::ALL))
         .id();
 
     commands.spawn((
@@ -99,6 +99,7 @@ fn setup(
                 fov: TAU / 5.0,
                 ..default()
             }),
+            exposure: Exposure::SUNLIGHT,
             ..default()
         },
         RenderPlayer { logical_entity },
@@ -109,24 +110,25 @@ fn setup(
         is_loaded: false,
     });
 
-    commands.spawn(TextBundle::from_section(
-        "",
-        TextStyle {
-            font: assets.load("fira_mono.ttf"),
-            font_size: 24.0,
-            color: Color::BLACK,
-        },
-    ).with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(5.0),
-        left: Val::Px(5.0),
-        ..default()
-    }));
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: assets.load("fira_mono.ttf"),
+                font_size: 24.0,
+                color: Color::BLACK,
+            },
+        )
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
+                ..default()
+            }),
+    );
 }
 
-fn respawn(
-    mut query: Query<(&mut Transform, &mut Velocity)>,
-) {
+fn respawn(mut query: Query<(&mut Transform, &mut Velocity)>) {
     for (mut transform, mut velocity) in &mut query {
         if transform.translation.y > -50.0 {
             continue;
@@ -159,10 +161,7 @@ fn scene_colliders(
 
     if let Some(gltf) = gltf {
         let scene = gltf.scenes.first().unwrap().clone();
-        commands.spawn(SceneBundle {
-            scene,
-            ..default()
-        });
+        commands.spawn(SceneBundle { scene, ..default() });
         for node in &gltf.nodes {
             let node = gltf_node_assets.get(node).unwrap();
             if let Some(gltf_mesh) = node.mesh.clone() {
@@ -187,19 +186,20 @@ fn manage_cursor(
     mut window_query: Query<&mut Window>,
     mut controller_query: Query<&mut FpsController>,
 ) {
-    let mut window = window_query.single_mut();
-    if btn.just_pressed(MouseButton::Left) {
-        window.cursor.grab_mode = CursorGrabMode::Locked;
-        window.cursor.visible = false;
-        for mut controller in &mut controller_query {
-            controller.enable_input = true;
+    for mut window in &mut window_query {
+        if btn.just_pressed(MouseButton::Left) {
+            window.cursor.grab_mode = CursorGrabMode::Locked;
+            window.cursor.visible = false;
+            for mut controller in &mut controller_query {
+                controller.enable_input = true;
+            }
         }
-    }
-    if key.just_pressed(KeyCode::Escape) {
-        window.cursor.grab_mode = CursorGrabMode::None;
-        window.cursor.visible = true;
-        for mut controller in &mut controller_query {
-            controller.enable_input = false;
+        if key.just_pressed(KeyCode::Escape) {
+            window.cursor.grab_mode = CursorGrabMode::None;
+            window.cursor.visible = true;
+            for mut controller in &mut controller_query {
+                controller.enable_input = false;
+            }
         }
     }
 }
@@ -212,8 +212,12 @@ fn display_text(
         for mut text in &mut text_query {
             text.sections[0].value = format!(
                 "vel: {:.2}, {:.2}, {:.2}\npos: {:.2}, {:.2}, {:.2}\nspd: {:.2}",
-                velocity.linvel.x, velocity.linvel.y, velocity.linvel.z,
-                transform.translation.x, transform.translation.y, transform.translation.z,
+                velocity.linvel.x,
+                velocity.linvel.y,
+                velocity.linvel.z,
+                transform.translation.x,
+                transform.translation.y,
+                transform.translation.z,
                 velocity.linvel.xz().length()
             );
         }
