@@ -99,7 +99,6 @@ pub struct FpsControllerInput {
     pub yaw: f32,
     pub movement: Vec3,
     pub mouse_delta: Vec2,
-    pub mouse_delta: Vec2,
 }
 
 #[derive(Component)]
