@@ -58,6 +58,7 @@ pub enum FpsEvent {
     DoubleJump,
     BunnyHop,
     Dash,
+    Land,
 }
 
 #[derive(Event)]
@@ -368,6 +369,8 @@ pub fn fps_controller_move(
                             velocity.linvel = Vec3::ZERO;
                         }
                         if controller.ground_tick == 1 {
+                            events.send(FpsControllerEvent { normal: Vec3::ZERO, origin: Vec3::ZERO, event: FpsEvent::Land });
+
                             velocity.linvel.y = -hit.time_of_impact;
                         }
                     }
@@ -389,6 +392,8 @@ pub fn fps_controller_move(
                         velocity.linvel -= Vec3::dot(linear_velocity, hit_details.normal1) * hit_details.normal1;
 
                         if input.jump {
+                            events.send(FpsControllerEvent { normal: Vec3::ZERO, origin: Vec3::ZERO, event: FpsEvent::Jump });
+
                             velocity.linvel.y = controller.jump_speed;
                         }
                     }
