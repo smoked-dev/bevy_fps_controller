@@ -81,7 +81,7 @@ pub fn update_custon_time(
     mut custom_time: ResMut<CustomTime>,
 ) {
     custom_time.dt = time.delta_seconds() * custom_time.multiplier;
-    custom_time.t = time.elapsed_seconds();
+    custom_time.t = time.elapsed_seconds() * custom_time.multiplier;
 }
 
 pub enum FpsEvent {
