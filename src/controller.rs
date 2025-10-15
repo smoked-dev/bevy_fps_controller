@@ -34,6 +34,8 @@ impl Plugin for FpsControllerPlugin {
     fn build(&self, app: &mut App) {
         use bevy::input::{mouse, keyboard, gamepad, touch};
 
+        app.add_systems(First, update_custon_time.after(bevy::time::TimeSystem));
+
         app.add_systems(
             PreUpdate,
             (fps_controller_input, fps_controller_look, fps_controller_move, fps_controller_render)
@@ -49,6 +51,36 @@ impl Plugin for FpsControllerPlugin {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct CustomTime {
+    pub multiplier: f32,
+    t: f32,
+    dt: f32,
+}
+
+impl CustomTime {
+    pub fn default() -> Self {
+        CustomTime {
+            multiplier: 1.,
+            t: 0.,
+            dt: 0.0001,
+        }
+    }
+    pub fn delta_seconds(&self) -> f32 {
+        self.dt
+    }
+    pub fn elapsed_seconds(&self) -> f32 {
+        self.t
+    }
+}
+
+pub fn update_custon_time(
+    time: Res<Time>,
+    mut custom_time: ResMut<CustomTime>,
+) {
+    custom_time.dt = time.delta_seconds() * custom_time.multiplier;
+    custom_time.t = time.elapsed_seconds();
+}
 
 pub enum FpsEvent {
     Jump,
@@ -267,7 +299,7 @@ pub fn fps_controller_look(mut query: Query<(&mut FpsController, &FpsControllerI
 }
 
 pub fn fps_controller_move(
-    time: Res<Time>,
+    time: Res<CustomTime>,
     physics_context: Res<RapierContext>,
     mut events: EventWriter<FpsControllerEvent>,
     mut query: Query<(
