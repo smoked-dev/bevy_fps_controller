@@ -34,6 +34,8 @@ impl Plugin for FpsControllerPlugin {
     fn build(&self, app: &mut App) {
         use bevy::input::{mouse, keyboard, gamepad, touch};
 
+        app.insert_resource(CustomTime::default());
+
         app.add_systems(First, update_custon_time.after(bevy::time::TimeSystem));
 
         app.add_systems(
